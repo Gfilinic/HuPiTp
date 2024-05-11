@@ -3,6 +3,7 @@ import QtQuick.Layouts
 import QtQuick.Controls
 
 RowLayout {
+    property real humidity: 0
     ColumnLayout {
         spacing: 20
 
@@ -22,7 +23,8 @@ RowLayout {
             radius: width / 2
 
             Text {
-                text: humidityDial.value.toFixed(1) + "°C"
+                id: humidityLabel
+                text: humidityDial.value.toFixed(1) + "%"
                 font.pixelSize: 16
                 horizontalAlignment: Text.AlignHCenter
                 anchors.centerIn: parent
@@ -34,7 +36,7 @@ RowLayout {
             from: 0
             visible: false
             to: 100
-            value: 30
+            value: humidity
             stepSize: 0.01
             enabled: false // Making the dial read-only
             width: 0

@@ -3,6 +3,8 @@ import QtQuick.Layouts
 import QtQuick.Controls
 
 RowLayout {
+    property real temperature: 0
+    property real temperatureF: 0
     ColumnLayout {
         spacing: 20
 
@@ -22,6 +24,7 @@ RowLayout {
             radius: width / 2
 
             Text {
+                id: temperatureLabel
                 text: temperatureDial.value.toFixed(1) + "°C"
                 font.pixelSize: 16
                 horizontalAlignment: Text.AlignHCenter
@@ -34,7 +37,7 @@ RowLayout {
             from: -20
             visible: false
             to: 40
-            value: 25
+            value: temperature
             stepSize: 0.01
             enabled: false // Making the dial read-only
             width: 0

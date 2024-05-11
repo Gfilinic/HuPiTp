@@ -19,6 +19,8 @@ qt_add_qml_module(appHuPiTp
         Main.qml
         QML_FILES Temperature.qml
         QML_FILES Humidity.qml
+        SOURCES
+        SOURCES dht22.h dht22.cpp
 )
 
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.
@@ -34,6 +36,7 @@ set_target_properties(appHuPiTp PROPERTIES
 
 target_link_libraries(appHuPiTp
     PRIVATE Qt6::Quick
+    wiringPi
 )
 
 include(GNUInstallDirs)
