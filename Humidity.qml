@@ -2,11 +2,10 @@ import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
 
-RowLayout {
-    property real humidity: 0
+
     ColumnLayout {
         spacing: 20
-
+        property real humidity: 0
         Text {
             text: "Humidity"
             font.pixelSize: 18
@@ -23,31 +22,19 @@ RowLayout {
             radius: width / 2
 
             Text {
-                id: humidityLabel
-                text: humidityDial.value.toFixed(1) + "%"
+                id:humidityLabel
+
                 font.pixelSize: 16
                 horizontalAlignment: Text.AlignHCenter
                 anchors.centerIn: parent
             }
         }
 
-        Dial {
-            id: humidityDial
-            from: 0
-            visible: false
-            to: 100
-            value: humidity
-            stepSize: 0.01
-            enabled: false // Making the dial read-only
-            width: 0
-            height: 0 // Hide the dial, we're using the Rectangle above as the visual representation
 
-            onValueChanged: {
-                // Update the text inside the rectangle
-                humidityLabel.text = value.toFixed(1) + "°C"
-            }
+    function updateHumidity(newHumidity) {
+            humidity = newHumidity;
+            humidityLabel.text = humidity.toFixed(1) + " %";
         }
-    }
 }
 
 

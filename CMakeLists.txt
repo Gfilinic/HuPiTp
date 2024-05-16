@@ -19,6 +19,7 @@ qt_add_qml_module(appHuPiTp
         Main.qml
         QML_FILES Temperature.qml
         QML_FILES Humidity.qml
+        QML_FILES Log.qml
         SOURCES
         SOURCES dht22.h dht22.cpp
 )
