@@ -4,7 +4,7 @@ project(HuPiTp VERSION 0.1 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Qt6 6.4 REQUIRED COMPONENTS Quick)
+find_package(Qt6 6.4 REQUIRED COMPONENTS Quick Graphs)
 
 qt_standard_project_setup()
 
@@ -21,7 +21,8 @@ qt_add_qml_module(appHuPiTp
         QML_FILES Humidity.qml
         QML_FILES Log.qml
         SOURCES
-        SOURCES dht22.h dht22.cpp
+        SOURCES
+        QML_FILES Statistic.qml
 )
 
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.
@@ -36,8 +37,7 @@ set_target_properties(appHuPiTp PROPERTIES
 )
 
 target_link_libraries(appHuPiTp
-    PRIVATE Qt6::Quick
-    wiringPi
+    PRIVATE Qt6::Quick Qt6::Graphs
 )
 
 include(GNUInstallDirs)
