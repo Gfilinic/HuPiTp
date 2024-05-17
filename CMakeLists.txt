@@ -4,7 +4,7 @@ project(HuPiTp VERSION 0.1 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Qt6 6.4 REQUIRED COMPONENTS Quick)
+find_package(Qt6 6.4 REQUIRED COMPONENTS Core Quick Graphs Quick3D)
 
 qt_standard_project_setup()
 
@@ -19,6 +19,8 @@ qt_add_qml_module(appHuPiTp
         Main.qml
         QML_FILES Temperature.qml
         QML_FILES Humidity.qml
+        QML_FILES Statistic.qml
+        QML_FILES Log.qml
         SOURCES
         SOURCES dht22.h dht22.cpp
 )
@@ -35,7 +37,7 @@ set_target_properties(appHuPiTp PROPERTIES
 )
 
 target_link_libraries(appHuPiTp
-    PRIVATE Qt6::Quick
+    PRIVATE Qt6::Quick Qt6::Graphs Qt6::Quick3D Qt6::Core
     wiringPi
 )
 

@@ -6,24 +6,82 @@ import QtQuick.Controls.Material 2.15
 ApplicationWindow {
     visible: true
     width: 400
-    height: 300
+    height: 600
     title: "Temperature and Humidity Display"
     property real temperatureValue: 0
     property real temperatureFValue: 0
     property real humidityValue: 0
-    RowLayout {
-        anchors.centerIn: parent
-        spacing: 50
 
-        Temperature{
-        id: temperatureObj
-        temperature: temperatureValue // Pass temperatureValue to Temperature
-        temperatureF: temperatureFValue // Pass temperatureFValue to Temperature
+    // Menu bar with only the "Statistics" option
+        menuBar: MenuBar {
+            Menu {
+                title: qsTr("&View")
+                Action {
+                    text: qsTr("&Statistics")
+                    onTriggered: statisticsWindow.visible = !statisticsWindow.visible
+                }
+            }
         }
 
-        Humidity{
-        id:humidityObj
+    onHeightChanged: {
+        humidityObj.updateCircle(height)
+        temperatureObj.updateCircle(height)
+    }
+
+    Temperature {
+        id: temperatureObj
+        temperature: temperatureValue // Pass temperatureValue to Temperature
+        anchors.left: parent.left
+        anchors.top: parent.top
+        anchors.leftMargin: 1/5 * parent.width // Add space from the left
+        anchors.topMargin: 1/20 * parent.height  // Add space from the top
+    }
+
+    Humidity {
+        id: humidityObj
         humidity: humidityValue
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.rightMargin: 1/5 * parent.width   // Add space from the right
+        anchors.topMargin: 1/20 * parent.height// Add space from the top
+    }
+
+    Log {
+        id: log
+        anchors {
+            bottom: parent.bottom
+            left: parent.left
+            right: parent.right
+            topMargin: 50
+        }
+        width:parent.width
+    }
+
+    Component.onCompleted: {
+
+    }
+
+    onTemperatureValueChanged: {
+        temperatureObj.updateTemperature(temperatureValue)
+        log.updateTemperatureLog(temperatureValue,temperatureFValue)
+    }
+
+    onHumidityValueChanged:{
+        humidityObj.updateHumidity(humidityValue)
+        log.updateHumidityLog(humidityValue)
+    }
+
+    // Statistics window
+    Window {
+        id: statisticsWindow
+        visible: false
+        width: 600
+        height: 400
+        title: "Statistics"
+
+        // Load the Statistic.qml file here
+        Statistic {
+            anchors.fill: parent
         }
     }
 }

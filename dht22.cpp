@@ -107,7 +107,7 @@ void DHT22::readAndOutputSensorDataAsJson(const QString &filename) // Modified t
         throw std::runtime_error("GPIO Initialization FAILED");
     }
 
-    maxtry = 20;
+
     //start timer
     clock_gettime(CLOCK_REALTIME, &start);
     int i = 0;
@@ -151,22 +151,39 @@ void DHT22::readAndOutputSensorDataAsJson(const QString &filename) // Modified t
 
             // Create JSON object
             QJsonObject json;
-            json["elapsed_time_sec"] = elapsedTime;
-            json["try_count"] = i;
-            json["datetime"] = dateTime.toString(Qt::ISODate);
-            json["temp_C"] = celsius;
-            json["temp_F"] = fahrenheit;
-            json["humid_perc"] = humidity;
+            QString dateKey = dateTime.toString("yyyy-MM-dd"); // Use the date as the key
+            QJsonObject entry;
+            entry["time"] = dateTime.toString("HH:mm:ss");
+            entry["humidity"] = humidity;
+            entry["temp_C"] = celsius;
+            entry["temp_F"] = fahrenheit;
 
-            // Write JSON object to file
-            if (file.open(QIODevice::WriteOnly | QIODevice::Append)) {
-                QJsonDocument doc(json);
+            // Read existing data from the file
+            QJsonObject existingData;
+            if (file.open(QIODevice::ReadOnly)) {
+                QByteArray fileData = file.readAll();
+                QJsonDocument doc(QJsonDocument::fromJson(fileData));
+                if (!doc.isNull() && doc.isObject()) {
+                    existingData = doc.object();
+                }
+                file.close();
+            }
+
+            // Add the new entry to the existing data
+            QJsonArray dateEntries = existingData.value(dateKey).toArray();
+            dateEntries.append(entry);
+            existingData[dateKey] = dateEntries;
+
+            // Write updated data back to the file
+            if (file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+                QJsonDocument doc(existingData);
                 file.write(doc.toJson());
                 file.write("\n"); // Add newline for readability
                 file.close();
             } else {
                 fprintf(stderr, "Error opening file for writing.\n");
             }
+
 
             emit temperatureUpdated(celsius, fahrenheit);
             emit humidityUpdated(humidity);

@@ -2,51 +2,49 @@ import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
 
-RowLayout {
+Item {
+
     property real temperature: 0
-    property real temperatureF: 0
-    ColumnLayout {
-        spacing: 20
+    property int heightProperty: 600
+
+    Text {
+        id: tempTitle
+        text: "Temperature"
+        font.pixelSize: 18
+        anchors.horizontalCenter: parent.horizontalCenter // Center horizontally
+        anchors.top: parent.top // Align to the top
+        anchors.bottomMargin: heightProperty/8
+    }
+
+    Rectangle {
+        width: heightProperty / 5
+        height: heightProperty / 5
+        anchors.horizontalCenter: parent.horizontalCenter // Center horizontally
+        // Center vertically by shifting up by half of the rectangle's height
+        anchors.top: tempTitle.bottom
+        anchors.topMargin: 10 // Adjust as needed
+
+        // Create a thicker border to simulate the Dial
+        border.color: "crimson"
+        border.width: 10
+        radius: width / 2
 
         Text {
-            text: "Temperature"
-            font.pixelSize: 18
-            Layout.alignment: Qt.AlignHCenter
+            id: temperatureLabel
+            font.bold: true
+            font.pixelSize: 16
+            horizontalAlignment: Text.AlignHCenter
+            anchors.centerIn: parent
         }
+    }
 
-        Rectangle {
-            width: 120
-            height: 120
 
-            // Create a thicker border to simulate the Dial
-            border.color: "crimson"
-            border.width: 10
-            radius: width / 2
+    function updateTemperature(newTemperature) {
+        temperature = newTemperature
+        temperatureLabel.text = temperature.toFixed(1) + "°C";
+    }
 
-            Text {
-                id: temperatureLabel
-                text: temperatureDial.value.toFixed(1) + "°C"
-                font.pixelSize: 16
-                horizontalAlignment: Text.AlignHCenter
-                anchors.centerIn: parent
-            }
-        }
-
-        Dial {
-            id: temperatureDial
-            from: -20
-            visible: false
-            to: 40
-            value: temperature
-            stepSize: 0.01
-            enabled: false // Making the dial read-only
-            width: 0
-            height: 0 // Hide the dial, we're using the Rectangle above as the visual representation
-
-            onValueChanged: {
-                // Update the text inside the rectangle
-                temperatureLabel.text = value.toFixed(1) + "°C"
-            }
-        }
+    function updateCircle(newHeight){
+        heightProperty = newHeight
     }
 }
