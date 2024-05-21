@@ -35,7 +35,6 @@ qt_add_qml_module(appHuPiTp
         Main.qml
         Temperature.qml
         Humidity.qml
-        Statistic.qml
         Log.qml
 )
 
