@@ -11,42 +11,28 @@
 #include <QDateTimeAxis>
 #include <QVBoxLayout> // Add this include directive
 #include <QMessageBox>
-
+#include <QMutex>
 #include <QQuickWidget>
 
 #include "customchartview.h"
 
-MainWindow::MainWindow(QWidget *parent)
+MainWindow::MainWindow(QMutex *fileMutex, DHT22 *sensor, QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
+    , lock(fileMutex)
+    , dht22(sensor)
 {
     ui->setupUi(this);
+    liveTempSeries = new QLineSeries();
+    liveHumiditySeries = new QLineSeries();
+    sensorDataFilePath = "sensorDataDHT22.json";
     connect(ui->actionDaily_statistic, &QAction::triggered, this, &MainWindow::showDailyStatisticGraph);
     connect(ui->actionMonthly_statistic, &QAction::triggered, this, &MainWindow::showMonthlyStatisticGraph);
     connect(ui->actionLive_Statistic, &QAction::triggered, this, &MainWindow::showLiveStatisticGraph);
 
-    mainQmlWidget = findChild<QQuickWidget*>("mainWidget");
-    if (mainQmlWidget) {
-        // Make sure QML engine is ready
-        QQmlEngine* engine = mainQmlWidget->engine();
 
-        // Move DHT22 object to a separate thread
-        dht22.moveToThread(&sensorThread);
-        QString fileName = "/sensorDataDHT22.json";
-        QString homeDir = QDir::homePath();
-        sensorDataFilePath = homeDir + fileName;
-
-        connect(&sensorThread, &QThread::started, &dht22, [this]() {
-            dht22.readAndOutputSensorDataAsJson(sensorDataFilePath);
-        });
-        sensorThread.start();
-
-        // Setup connections to update UI
-        setupSignals();
-    }
-
-    liveTempSeries = new QLineSeries();
-    liveHumiditySeries = new QLineSeries();
+    //setupSignals();
+    //mainQMLWIdget findchild
 
 }
 
@@ -61,6 +47,7 @@ QMap<QString, QList<QVariantMap>> MainWindow::loadJsonDataFromFile(const QString
     QMap<QString, QList<QVariantMap>> dataMap;
 
     QFile file(fileName);
+    lock->lock();
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         qWarning() << "Failed to open file" << fileName;
         return dataMap;
@@ -68,7 +55,7 @@ QMap<QString, QList<QVariantMap>> MainWindow::loadJsonDataFromFile(const QString
 
     QByteArray jsonData = file.readAll();
     file.close();
-
+    lock->unlock();
     QJsonDocument jsonDoc = QJsonDocument::fromJson(jsonData);
     QJsonArray jsonArray = jsonDoc.array();
 
@@ -296,7 +283,7 @@ QChart *MainWindow::createLiveStatisticChart()
 
 void MainWindow::setupSignals()
 {
-    QObject::connect(&dht22, &DHT22::temperatureUpdated, this, [this](float celsius, float fahrenheit) {
+    QObject::connect(dht22, &DHT22::temperatureUpdated, this, [this](float celsius, float fahrenheit) {
         if (mainQmlWidget && mainQmlWidget->rootObject()) {
             mainQmlWidget->rootObject()->setProperty("temperatureValue", celsius);
             mainQmlWidget->rootObject()->setProperty("temperatureFValue", fahrenheit);
@@ -308,7 +295,7 @@ void MainWindow::setupSignals()
         }
     });
 
-    QObject::connect(&dht22, &DHT22::humidityUpdated, this, [this](float humidity) {
+    QObject::connect(dht22, &DHT22::humidityUpdated, this, [this](float humidity) {
         if (mainQmlWidget && mainQmlWidget->rootObject()) {
             mainQmlWidget->rootObject()->setProperty("humidityValue", humidity);
         }
@@ -428,5 +415,21 @@ void MainWindow::adjustTickCount(QMainWindow* graphWindow, QChart* chart) {
         // Adjust label format based on window width
         QString labelFormat = (windowWidth < 1100) ? "h" : "HH:mm";
         axisX->setFormat(labelFormat);
+    }
+}
+
+void MainWindow::updateTemperature(float celsius, float fahrenheit)
+{
+    if (liveTempSeries) {
+        QDateTime time = QDateTime::currentDateTime();
+        liveTempSeries->append(time.toMSecsSinceEpoch(), celsius);
+    }
+}
+
+void MainWindow::updateHumidity(float humidity)
+{
+    if (liveHumiditySeries) {
+        QDateTime time = QDateTime::currentDateTime();
+        liveHumiditySeries->append(time.toMSecsSinceEpoch(), humidity);
     }
 }

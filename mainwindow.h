@@ -19,8 +19,10 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 
 public:
-    MainWindow(QWidget *parent = nullptr);
+    MainWindow(QMutex *fileMutex,DHT22 *sensor, QWidget *parent = nullptr);
     ~MainWindow();
+    void updateTemperature(float celsius, float fahrenheit);
+    void updateHumidity(float humidity);
 
 public slots:
     void showDailyStatisticGraph();
@@ -40,9 +42,9 @@ private:
     QLineSeries *liveHumiditySeries; // Added
 
     QQuickWidget *mainQmlWidget;
-    DHT22 dht22;
-    QThread sensorThread;
-
+    DHT22 *dht22;
+    QString sensorDataFilePath;
+    QMutex *lock;
 
     void setupSignals();
 

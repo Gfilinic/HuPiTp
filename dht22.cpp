@@ -2,10 +2,13 @@
 #include <stdio.h>
 #include <time.h>
 #include <wiringPi.h>
+#include <QMutex>
 
-DHT22::DHT22(QObject *parent) : QObject(parent)
+
+DHT22::DHT22(QMutex *fileMutex, QObject *parent) : QObject(parent)
 {
     // Constructor implementation
+    lock = fileMutex;
 }
 
 short DHT22::readData()
@@ -160,6 +163,7 @@ void DHT22::readAndOutputSensorDataAsJson(const QString &filename) // Modified t
 
             // Read existing data from the file
             QJsonObject existingData;
+            lock->lock();
             if (file.open(QIODevice::ReadOnly)) {
                 QByteArray fileData = file.readAll();
                 QJsonDocument doc(QJsonDocument::fromJson(fileData));
@@ -168,7 +172,7 @@ void DHT22::readAndOutputSensorDataAsJson(const QString &filename) // Modified t
                 }
                 file.close();
             }
-
+            lock->unlock();
             // Add the new entry to the existing data
             QJsonArray dateEntries = existingData.value(dateKey).toArray();
             dateEntries.append(entry);
