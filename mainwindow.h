@@ -7,6 +7,7 @@
 #include <QQuickItem>
 #include <QQmlContext>
 #include <QQmlEngine>
+#include <QReadWriteLock>
 #include"dht22.h"
 
 
@@ -19,7 +20,7 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 
 public:
-    MainWindow(QMutex *fileMutex, QWidget *parent = nullptr);
+    MainWindow(QReadWriteLock *fileMutex, QString filePath, QWidget *parent = nullptr);
     ~MainWindow();
     void updateTemperature(float celsius, float fahrenheit);
     void updateHumidity(float humidity);
@@ -44,9 +45,8 @@ private:
     QQuickWidget *mainQmlWidget;
     DHT22 *dht22;
     QString sensorDataFilePath;
-    QMutex *lock;
+    QReadWriteLock *lock;
 
-    void setupSignals();
     void showChartInNewWindow(QChart *chart, const QString &title, bool adjustTickCount);
 
 };

@@ -5,7 +5,7 @@
 #include <QMutex>
 
 
-DHT22::DHT22(QMutex *fileMutex, QObject *parent) : QObject(parent)
+DHT22::DHT22(QReadWriteLock *fileMutex, QObject *parent) : QObject(parent)
 {
     try {
         // Constructor implementation
@@ -115,7 +115,7 @@ void DHT22::readAndOutputSensorDataAsJson(const QString &filename) // Modified t
     }
     QJsonObject existingData;
     {
-    QMutexLocker locker(lock);
+    QReadLocker locker(lock);
     if (file.open(QIODevice::ReadOnly)) {
         QByteArray fileData = file.readAll();
         QJsonDocument doc(QJsonDocument::fromJson(fileData));
@@ -183,7 +183,7 @@ void DHT22::readAndOutputSensorDataAsJson(const QString &filename) // Modified t
             dateEntries.append(entry);
             existingData[dateKey] = dateEntries;
             {
-                QMutexLocker locker(lock);
+                QWriteLocker locker(lock);
                 // Write updated data back to the file
                 if (file.open(QIODevice::WriteOnly)) {
                     QJsonDocument doc(existingData);

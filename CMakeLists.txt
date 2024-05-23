@@ -9,7 +9,7 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Qt6 6.4 REQUIRED COMPONENTS Core Quick Graphs Quick3D Widgets Charts QuickWidgets)
+find_package(Qt6 6.4 REQUIRED COMPONENTS Core Quick Quick3D Widgets Charts QuickWidgets)
 
 set(PROJECT_SOURCES
     main.cpp
@@ -44,11 +44,10 @@ set_target_properties(appHuPiTp PROPERTIES
     MACOSX_BUNDLE TRUE
     WIN32_EXECUTABLE TRUE
 )
-
+target_compile_options(appHuPiTp PRIVATE -g)
 target_link_libraries(appHuPiTp
     PRIVATE Qt6::Core
             Qt6::Quick
-            Qt6::Graphs
             Qt6::Quick3D
             Qt6::Widgets
             Qt6::Charts

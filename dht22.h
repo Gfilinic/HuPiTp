@@ -7,12 +7,12 @@
 #include <QJsonArray>
 #include <QDateTime>
 #include <QFile>
-#include <QMutex>
+#include <QReadWriteLock>
 class DHT22 : public QObject
 {
     Q_OBJECT
 public:
-    explicit DHT22(QMutex *fileMutex, QObject *parent = nullptr);
+    explicit DHT22(QReadWriteLock *fileMutex, QObject *parent = nullptr);
 
 signals:
     void temperatureUpdated(float celsius, float fahrenheit);
@@ -26,7 +26,7 @@ private:
     unsigned short data[5] = {0, 0, 0, 0, 0};
 
     short readData();
-    QMutex *lock;
+    QReadWriteLock *lock;
 };
 
 

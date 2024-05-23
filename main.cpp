@@ -6,16 +6,19 @@
 #include "dht22.h"
 #include <QMutex>
 #include <QMessageBox>
-
+#include <QReadWriteLock>
+#include <QtConcurrent>
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
 
     try {
-        QMutex fileMutex;
+        QReadWriteLock fileMutex;
 
         // MainWindow setup
-        MainWindow w(&fileMutex);
+
+        QString fileName = "sensorDataDHT22.json";
+        MainWindow w(&fileMutex, fileName);
 
         // QQuickWidget setup for QML
         QQuickWidget *qmlWidget = new QQuickWidget;
@@ -24,26 +27,18 @@ int main(int argc, char *argv[])
         w.setCentralWidget(qmlWidget);
 
         // DHT22 setup
-        DHT22 dht22(&fileMutex, &w); // Create DHT22 object on the stack
-        QThread sensorThread(&w);     // Create QThread object on the stack
-        dht22.moveToThread(&sensorThread);
-        QString fileName = "sensorDataDHT22.json";
+        DHT22 *dht22 = new DHT22(&fileMutex); // Create DHT22 object on the stack
 
-        QObject::connect(&sensorThread, &QThread::started, &dht22, [fileName, &dht22]() {
-            try {
-                dht22.readAndOutputSensorDataAsJson(fileName);
-            } catch (const std::exception &e) {
-                qCritical() << "Exception in readAndOutputSensorDataAsJson:" << e.what();
-            }
-        });
-        QObject::connect(&app, &QApplication::aboutToQuit, [&]() {
-            sensorThread.quit();
-            sensorThread.wait();
-        });
-        sensorThread.start();
+
+        auto readDataFunc = [=]() {
+            dht22->readAndOutputSensorDataAsJson(fileName);
+        };
+
+        // Use QtConcurrent::run with the lambda function
+        QFuture<void> future = QtConcurrent::run(readDataFunc);
 
         // Connect signals to update both QWidget and QML interfaces
-        QObject::connect(&dht22, &DHT22::temperatureUpdated, &w, [&](float celsius, float fahrenheit) {
+        QObject::connect(dht22, &DHT22::temperatureUpdated, &w, [&](float celsius, float fahrenheit) {
             w.updateTemperature(celsius, fahrenheit);
             if (qmlWidget->rootObject()) {
                 qmlWidget->rootObject()->setProperty("temperatureValue", celsius);
@@ -51,7 +46,7 @@ int main(int argc, char *argv[])
             }
         });
 
-        QObject::connect(&dht22, &DHT22::humidityUpdated, &w, [&](float humidity) {
+        QObject::connect(dht22, &DHT22::humidityUpdated, &w, [&](float humidity) {
             w.updateHumidity(humidity);
             if (qmlWidget->rootObject()) {
                 qmlWidget->rootObject()->setProperty("humidityValue", humidity);

@@ -16,16 +16,16 @@
 
 #include "customchartview.h"
 
-MainWindow::MainWindow(QMutex *fileMutex, QWidget *parent)
+MainWindow::MainWindow(QReadWriteLock *fileMutex, QString filePath, QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
     , lock(fileMutex)
+    , sensorDataFilePath(filePath)
 {
     try {
         ui->setupUi(this);
         liveTempSeries = new QLineSeries(this);
         liveHumiditySeries = new QLineSeries(this);
-        sensorDataFilePath = "sensorDataDHT22.json";
         connect(ui->actionDaily_statistic, &QAction::triggered, this, &MainWindow::showDailyStatisticGraph);
         connect(ui->actionMonthly_statistic, &QAction::triggered, this, &MainWindow::showMonthlyStatisticGraph);
         connect(ui->actionLive_Statistic, &QAction::triggered, this, &MainWindow::showLiveStatisticGraph);
@@ -48,7 +48,7 @@ QMap<QString, QList<QVariantMap>> MainWindow::loadJsonDataFromFile(const QString
     QMap<QString, QList<QVariantMap>> dataMap;
 
     QFile file(fileName);
-    QMutexLocker locker(lock);
+    QReadLocker locker(lock);
     try {
         if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
             qWarning() << "Failed to open file" << fileName;
@@ -248,8 +248,11 @@ QChart *MainWindow::createLiveStatisticChart()
 
     // Configure axes
     QDateTimeAxis *axisX = new QDateTimeAxis;
-    axisX->setTickCount(25);
-    axisX->setFormat("HH:mm");
+    int intervalInSeconds = 2; // Adjust this value to set the interval
+    int tickCount = 120 * 60 / intervalInSeconds; // 1 hour divided by intervalInSeconds
+    axisX->setTickCount(tickCount);
+    QString labelFormat = (intervalInSeconds < 60) ? "mm:ss" : "HH:mm";
+    axisX->setFormat(labelFormat);
     axisX->setTitleText("Time (00:00 - 24:00)");
     QDateTime minTime = QDateTime(QDate::currentDate(), QTime(0, 0));
     QDateTime maxTime = QDateTime(QDate::currentDate(), QTime(23, 59));
@@ -285,34 +288,6 @@ QChart *MainWindow::createLiveStatisticChart()
 
     return chart;
 }
-
-void MainWindow::setupSignals()
-{
-    QObject::connect(dht22, &DHT22::temperatureUpdated, this, [this](float celsius, float fahrenheit) {
-        if (mainQmlWidget && mainQmlWidget->rootObject()) {
-            mainQmlWidget->rootObject()->setProperty("temperatureValue", celsius);
-            mainQmlWidget->rootObject()->setProperty("temperatureFValue", fahrenheit);
-        }
-        if (liveTempSeries) {
-            // Assuming the time is available as a QDateTime object
-            QDateTime time = QDateTime::currentDateTime();
-            liveTempSeries->append(time.toMSecsSinceEpoch(), celsius);
-        }
-    });
-
-    QObject::connect(dht22, &DHT22::humidityUpdated, this, [this](float humidity) {
-        if (mainQmlWidget && mainQmlWidget->rootObject()) {
-            mainQmlWidget->rootObject()->setProperty("humidityValue", humidity);
-        }
-        if (liveHumiditySeries) {
-            // Assuming the time is available as a QDateTime object
-            QDateTime time = QDateTime::currentDateTime();
-            liveHumiditySeries->append(time.toMSecsSinceEpoch(), humidity);
-        }
-    });
-
-}
-
 
 void MainWindow::showDailyStatisticGraph() {
     QChart *chart = createDailyStatisticChart();
