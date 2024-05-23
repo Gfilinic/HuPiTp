@@ -59,20 +59,22 @@ QMap<QString, QList<QVariantMap>> MainWindow::loadJsonDataFromFile(const QString
         file.close();
 
         QJsonDocument jsonDoc = QJsonDocument::fromJson(jsonData);
-        QJsonArray jsonArray = jsonDoc.array();
+        if (!jsonDoc.isObject()) {
+            qWarning() << "JSON is not an object" << fileName;
+            return dataMap;
+        }
 
-        for (const QJsonValue &value : jsonArray) {
-            QJsonObject dateObject = value.toObject();
-            QStringList keys = dateObject.keys();
-            for (const QString &key : keys) {
-                QJsonArray readingsArray = dateObject.value(key).toArray();
-                QList<QVariantMap> dataList;
-                for (const QJsonValue &readingValue : readingsArray) {
-                    QVariantMap map = readingValue.toObject().toVariantMap();
-                    dataList.append(map);
-                }
-                dataMap.insert(key, dataList);
+        QJsonObject jsonObject = jsonDoc.object();
+
+        for (auto it = jsonObject.begin(); it != jsonObject.end(); ++it) {
+            QString dateKey = it.key();
+            QJsonArray readingsArray = it.value().toArray();
+            QList<QVariantMap> dataList;
+            for (const QJsonValue &readingValue : readingsArray) {
+                QVariantMap map = readingValue.toObject().toVariantMap();
+                dataList.append(map);
             }
+            dataMap.insert(dateKey, dataList);
         }
     } catch (const std::exception &e) {
         QMessageBox::critical(nullptr, "Error", QString("An error occurred in loadJsonDataFromFile: %1").arg(e.what()));
@@ -82,18 +84,20 @@ QMap<QString, QList<QVariantMap>> MainWindow::loadJsonDataFromFile(const QString
 }
 
 
+
 QChart* MainWindow::createDailyStatisticChart()
 {
     // Load JSON data from file
     // Update the path as needed
     QMap<QString, QList<QVariantMap>> dataMap = loadJsonDataFromFile(sensorDataFilePath);
-
+    qDebug() << "Number of entries in dataMap:" << dataMap.size();
     // Get current date in string format "YYYY-MM-DD"
     QString currentDate = QDate::currentDate().toString("yyyy-MM-dd");
+    qDebug() << "Current date:" << currentDate;
 
     // Retrieve data for the current date
     QList<QVariantMap> currentData = dataMap.value(currentDate);
-
+    qDebug() << "Number of entries in currentData:" << currentData.size();
     // Create line series for temperature and humidity
     QLineSeries *tempSeries = new QLineSeries();
     QLineSeries *humiditySeries = new QLineSeries();
@@ -249,13 +253,14 @@ QChart *MainWindow::createLiveStatisticChart()
     // Configure axes
     QDateTimeAxis *axisX = new QDateTimeAxis;
     int intervalInSeconds = 2; // Adjust this value to set the interval
-    int tickCount = 120 * 60 / intervalInSeconds; // 1 hour divided by intervalInSeconds
+    int tickCount = 10; // 1 hour divided by intervalInSeconds
     axisX->setTickCount(tickCount);
-    QString labelFormat = (intervalInSeconds < 60) ? "mm:ss" : "HH:mm";
+    //QString labelFormat = (intervalInSeconds < 60) ? "mm:ss" : "HH:mm";
+    QString labelFormat = "mm:ss";
     axisX->setFormat(labelFormat);
     axisX->setTitleText("Time (00:00 - 24:00)");
-    QDateTime minTime = QDateTime(QDate::currentDate(), QTime(0, 0));
-    QDateTime maxTime = QDateTime(QDate::currentDate(), QTime(23, 59));
+    QDateTime minTime = QDateTime(QDate::currentDate(), QTime(QTime::currentTime().minute(), QTime::currentTime().second()));
+    QDateTime maxTime = QDateTime(QDate::currentDate(), QTime(QTime::currentTime().minute() + 10, QTime::currentTime().second()));
     axisX->setRange(minTime, maxTime);
     chart->addAxis(axisX, Qt::AlignBottom);
     liveTempSeries->attachAxis(axisX);
@@ -266,13 +271,15 @@ QChart *MainWindow::createLiveStatisticChart()
     axisY->setTitleText("Value");
 
     // Determine the minimum temperature value to set the Y axis range
-    double minTemp = 0;
+    double minTemp = 20;
+    double maxHumidity = -10;
     for (const auto &data : liveTempSeries->points()) {
         if (data.y() < minTemp) {
-            minTemp = data.y();
+            minTemp = data.y() - 10;
         }
+        if (data.y()> maxHumidity)maxHumidity = data.y()+10;
     }
-    axisY->setRange(minTemp, 100);
+    axisY->setRange(minTemp, maxHumidity);
     chart->addAxis(axisY, Qt::AlignLeft);
     liveTempSeries->attachAxis(axisY);
     liveHumiditySeries->attachAxis(axisY);
@@ -302,7 +309,7 @@ void MainWindow::showMonthlyStatisticGraph()
 
 void MainWindow::showLiveStatisticGraph() {
     QChart *chart = createLiveStatisticChart();
-    showChartInNewWindow(chart, "Live Statistic Graph", true);
+    showChartInNewWindow(chart, "Live Statistic Graph", false);
 }
 
 void MainWindow::adjustTickCount(QMainWindow* graphWindow, QChart* chart) {
