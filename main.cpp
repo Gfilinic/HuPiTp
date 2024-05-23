@@ -1,40 +1,63 @@
-#include <QGuiApplication>
+#include <QApplication>
+#include <QQuickWidget>
+#include <QThread>
 #include <QQmlApplicationEngine>
-#include <QThread> // Include QThread for threading
-#include "dht22.h" // Include the header for DHT22 here
-
+#include "mainwindow.h"
+#include "dht22.h"
+#include <QMutex>
+#include <QMessageBox>
+#include <QReadWriteLock>
+#include <QtConcurrent>
 int main(int argc, char *argv[])
 {
-    QGuiApplication app(argc, argv);
+    QApplication app(argc, argv);
 
-    DHT22 dht22;
-    QThread sensorThread;
-    dht22.moveToThread(&sensorThread);
-    QString fileName = "sensorDataDHT22.json";
-    QObject::connect(&sensorThread, &QThread::started, &dht22, [fileName, &dht22]() {
-        dht22.readAndOutputSensorDataAsJson(fileName); // Pass the file name to the function
-    });
-    sensorThread.start();
+    try {
+        QReadWriteLock fileMutex;
 
-    QQmlApplicationEngine engine;
-    const QUrl url(QStringLiteral("qrc:/HuPiTp/Main.qml"));
-    QObject::connect(
-        &engine,
-        &QQmlApplicationEngine::objectCreationFailed,
-        &app,
-        []() { QCoreApplication::exit(-1); },
-        Qt::QueuedConnection);
-    engine.load(url);
+        // MainWindow setup
 
-    // Connect signals to update temperature and humidity
-    QObject::connect(&dht22, &DHT22::temperatureUpdated, &engine, [&](float celsius, float fahrenheit) {
-        engine.rootObjects().first()->setProperty("temperatureValue", celsius);
-        engine.rootObjects().first()->setProperty("temperatureFValue", fahrenheit);
-    });
+        QString fileName = "sensorDataDHT22.json";
+        MainWindow w(&fileMutex, fileName);
 
-    QObject::connect(&dht22, &DHT22::humidityUpdated, &engine, [&](float humidity) {
-        engine.rootObjects().first()->setProperty("humidityValue", humidity);
-    });
+        // QQuickWidget setup for QML
+        QQuickWidget *qmlWidget = new QQuickWidget;
+        qmlWidget->setSource(QUrl(QStringLiteral("qrc:/HuPiTp/Main.qml")));
+        qmlWidget->setResizeMode(QQuickWidget::SizeRootObjectToView);
+        w.setCentralWidget(qmlWidget);
 
-    return app.exec();
+        // DHT22 setup
+        DHT22 *dht22 = new DHT22(&fileMutex); // Create DHT22 object on the stack
+
+
+        auto readDataFunc = [=]() {
+            dht22->readAndOutputSensorDataAsJson(fileName);
+        };
+
+        // Use QtConcurrent::run with the lambda function
+        QFuture<void> future = QtConcurrent::run(readDataFunc);
+
+        // Connect signals to update both QWidget and QML interfaces
+        QObject::connect(dht22, &DHT22::temperatureUpdated, &w, [&](float celsius, float fahrenheit) {
+            w.updateTemperature(celsius, fahrenheit);
+            if (qmlWidget->rootObject()) {
+                qmlWidget->rootObject()->setProperty("temperatureValue", celsius);
+                qmlWidget->rootObject()->setProperty("temperatureFValue", fahrenheit);
+            }
+        });
+
+        QObject::connect(dht22, &DHT22::humidityUpdated, &w, [&](float humidity) {
+            w.updateHumidity(humidity);
+            if (qmlWidget->rootObject()) {
+                qmlWidget->rootObject()->setProperty("humidityValue", humidity);
+            }
+        });
+
+        w.show();
+
+        return app.exec();
+    } catch (const std::exception &e) {
+        QMessageBox::critical(nullptr, "Error", QString("An error occurred in main.cpp: %1").arg(e.what()));
+        return -1;
+    }
 }
