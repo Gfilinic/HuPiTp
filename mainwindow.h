@@ -19,7 +19,7 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 
 public:
-    MainWindow(QMutex *fileMutex,DHT22 *sensor, QWidget *parent = nullptr);
+    MainWindow(QMutex *fileMutex, QWidget *parent = nullptr);
     ~MainWindow();
     void updateTemperature(float celsius, float fahrenheit);
     void updateHumidity(float humidity);
@@ -47,6 +47,7 @@ private:
     QMutex *lock;
 
     void setupSignals();
+    void showChartInNewWindow(QChart *chart, const QString &title, bool adjustTickCount);
 
 };
 

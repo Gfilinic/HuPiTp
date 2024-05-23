@@ -16,28 +16,29 @@
 
 #include "customchartview.h"
 
-MainWindow::MainWindow(QMutex *fileMutex, DHT22 *sensor, QWidget *parent)
+MainWindow::MainWindow(QMutex *fileMutex, QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
     , lock(fileMutex)
-    , dht22(sensor)
 {
-    ui->setupUi(this);
-    liveTempSeries = new QLineSeries();
-    liveHumiditySeries = new QLineSeries();
-    sensorDataFilePath = "sensorDataDHT22.json";
-    connect(ui->actionDaily_statistic, &QAction::triggered, this, &MainWindow::showDailyStatisticGraph);
-    connect(ui->actionMonthly_statistic, &QAction::triggered, this, &MainWindow::showMonthlyStatisticGraph);
-    connect(ui->actionLive_Statistic, &QAction::triggered, this, &MainWindow::showLiveStatisticGraph);
-
-
-    //setupSignals();
-    //mainQMLWIdget findchild
+    try {
+        ui->setupUi(this);
+        liveTempSeries = new QLineSeries(this);
+        liveHumiditySeries = new QLineSeries(this);
+        sensorDataFilePath = "sensorDataDHT22.json";
+        connect(ui->actionDaily_statistic, &QAction::triggered, this, &MainWindow::showDailyStatisticGraph);
+        connect(ui->actionMonthly_statistic, &QAction::triggered, this, &MainWindow::showMonthlyStatisticGraph);
+        connect(ui->actionLive_Statistic, &QAction::triggered, this, &MainWindow::showLiveStatisticGraph);
+    } catch (const std::exception &e) {
+        QMessageBox::critical(nullptr, "Error", QString("An error occurred in MainWindow constructor: %1").arg(e.what()));
+    }
 
 }
 
 MainWindow::~MainWindow()
 {
+    delete liveHumiditySeries;
+    delete liveTempSeries;
     delete ui;
 }
 
@@ -47,30 +48,34 @@ QMap<QString, QList<QVariantMap>> MainWindow::loadJsonDataFromFile(const QString
     QMap<QString, QList<QVariantMap>> dataMap;
 
     QFile file(fileName);
-    lock->lock();
-    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        qWarning() << "Failed to open file" << fileName;
-        return dataMap;
-    }
-
-    QByteArray jsonData = file.readAll();
-    file.close();
-    lock->unlock();
-    QJsonDocument jsonDoc = QJsonDocument::fromJson(jsonData);
-    QJsonArray jsonArray = jsonDoc.array();
-
-    for (const QJsonValue &value : jsonArray) {
-        QJsonObject dateObject = value.toObject();
-        QStringList keys = dateObject.keys();
-        for (const QString &key : keys) {
-            QJsonArray readingsArray = dateObject.value(key).toArray();
-            QList<QVariantMap> dataList;
-            for (const QJsonValue &readingValue : readingsArray) {
-                QVariantMap map = readingValue.toObject().toVariantMap();
-                dataList.append(map);
-            }
-            dataMap.insert(key, dataList);
+    QMutexLocker locker(lock);
+    try {
+        if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            qWarning() << "Failed to open file" << fileName;
+            return dataMap;
         }
+
+        QByteArray jsonData = file.readAll();
+        file.close();
+
+        QJsonDocument jsonDoc = QJsonDocument::fromJson(jsonData);
+        QJsonArray jsonArray = jsonDoc.array();
+
+        for (const QJsonValue &value : jsonArray) {
+            QJsonObject dateObject = value.toObject();
+            QStringList keys = dateObject.keys();
+            for (const QString &key : keys) {
+                QJsonArray readingsArray = dateObject.value(key).toArray();
+                QList<QVariantMap> dataList;
+                for (const QJsonValue &readingValue : readingsArray) {
+                    QVariantMap map = readingValue.toObject().toVariantMap();
+                    dataList.append(map);
+                }
+                dataMap.insert(key, dataList);
+            }
+        }
+    } catch (const std::exception &e) {
+        QMessageBox::critical(nullptr, "Error", QString("An error occurred in loadJsonDataFromFile: %1").arg(e.what()));
     }
 
     return dataMap;
@@ -310,95 +315,19 @@ void MainWindow::setupSignals()
 
 
 void MainWindow::showDailyStatisticGraph() {
-    // Create a new window to display the graph
-
-    QMainWindow *graphWindow = new QMainWindow;
-
-    // Create the widget containing the graph
-    QWidget *graphWidget = new QWidget;
-    QVBoxLayout *layout = new QVBoxLayout; // Remove graphWidget from this line
-
-    // Create and add the graph to the layout
-    QChart *chart = createDailyStatisticChart(); // Pass arguments here
-    QChartView *chartView = new CustomChartView(chart);
-    chartView->setRenderHint(QPainter::Antialiasing);
-    layout->addWidget(chartView);
-    graphWidget->setLayout(layout); // Add this line
-
-    // Set the central widget of the window
-    graphWindow->setCentralWidget(graphWidget);
-
-    // Set window title
-    graphWindow->setWindowTitle("Daily Statistic Graph");
-    graphWindow->resize(800, 600);
-
-    connect(dynamic_cast<CustomChartView*>(chartView), &CustomChartView::resized, this, [graphWindow, chart, this]() {
-        adjustTickCount(graphWindow, chart);
-    });
-
-    // Show the window
-    graphWindow->show();
+    QChart *chart = createDailyStatisticChart();
+    showChartInNewWindow(chart, "Daily Statistic Graph", true);
 }
 
 void MainWindow::showMonthlyStatisticGraph()
 {
-    // Create a new window to display the graph
-
-    QMainWindow *graphWindow = new QMainWindow;
-
-    // Create the widget containing the graph
-    QWidget *graphWidget = new QWidget;
-    QVBoxLayout *layout = new QVBoxLayout; // Remove graphWidget from this line
-
-    // Create and add the graph to the layout
-    QChart *chart = createMonthlyStatisticChart(); // Pass arguments here
-    QChartView *chartView = new CustomChartView(chart);
-    chartView->setRenderHint(QPainter::Antialiasing);
-    layout->addWidget(chartView);
-    graphWidget->setLayout(layout); // Add this line
-
-    // Set the central widget of the window
-    graphWindow->setCentralWidget(graphWidget);
-
-    // Set window title
-    graphWindow->setWindowTitle("Monthly Statistic Graph");
-    graphWindow->resize(800, 600);
-
-
-
-    // Show the window
-    graphWindow->show();
+    QChart *chart = createMonthlyStatisticChart();
+    showChartInNewWindow(chart, "Monthly Statistic Graph", false);
 }
 
 void MainWindow::showLiveStatisticGraph() {
-    // Create a new window to display the graph
-
-    QMainWindow *graphWindow = new QMainWindow;
-
-    // Create the widget containing the graph
-    QWidget *graphWidget = new QWidget;
-    QVBoxLayout *layout = new QVBoxLayout; // Remove graphWidget from this line
-
-    // Create and add the graph to the layout
-    QChart *chart = createLiveStatisticChart(); // Pass arguments here
-    QChartView *chartView = new CustomChartView(chart);
-    chartView->setRenderHint(QPainter::Antialiasing);
-    layout->addWidget(chartView);
-    graphWidget->setLayout(layout); // Add this line
-
-    // Set the central widget of the window
-    graphWindow->setCentralWidget(graphWidget);
-
-    // Set window title
-    graphWindow->setWindowTitle("Daily Statistic Graph");
-    graphWindow->resize(800, 600);
-
-    connect(dynamic_cast<CustomChartView*>(chartView), &CustomChartView::resized, this, [graphWindow, chart, this]() {
-        adjustTickCount(graphWindow, chart);
-    });
-
-    // Show the window
-    graphWindow->show();
+    QChart *chart = createLiveStatisticChart();
+    showChartInNewWindow(chart, "Live Statistic Graph", true);
 }
 
 void MainWindow::adjustTickCount(QMainWindow* graphWindow, QChart* chart) {
@@ -432,4 +361,26 @@ void MainWindow::updateHumidity(float humidity)
         QDateTime time = QDateTime::currentDateTime();
         liveHumiditySeries->append(time.toMSecsSinceEpoch(), humidity);
     }
+}
+
+void MainWindow::showChartInNewWindow(QChart *chart, const QString &title,  bool adjustable)
+{
+    QMainWindow *graphWindow = new QMainWindow;
+    QWidget *graphWidget = new QWidget;
+    QVBoxLayout *layout = new QVBoxLayout;
+
+    QChartView *chartView = new CustomChartView(chart);
+    chartView->setRenderHint(QPainter::Antialiasing);
+    layout->addWidget(chartView);
+    graphWidget->setLayout(layout);
+
+    graphWindow->setCentralWidget(graphWidget);
+    graphWindow->setWindowTitle(title);
+    graphWindow->resize(800, 600);
+
+    if(adjustable)
+    connect(dynamic_cast<CustomChartView*>(chartView), &CustomChartView::resized, this, [graphWindow, chart, this]() {
+        adjustTickCount(graphWindow, chart);
+    });
+    graphWindow->show();
 }
