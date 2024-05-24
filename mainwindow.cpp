@@ -252,16 +252,15 @@ QChart *MainWindow::createLiveStatisticChart()
 
     // Configure axes
     QDateTimeAxis *axisX = new QDateTimeAxis;
-    int intervalInSeconds = 2; // Adjust this value to set the interval
-    int tickCount = 10; // 1 hour divided by intervalInSeconds
-    axisX->setTickCount(tickCount);
-    //QString labelFormat = (intervalInSeconds < 60) ? "mm:ss" : "HH:mm";
-    QString labelFormat = "mm:ss";
-    axisX->setFormat(labelFormat);
-    axisX->setTitleText("Time (00:00 - 24:00)");
-    QDateTime minTime = QDateTime(QDate::currentDate(), QTime(QTime::currentTime().minute(), QTime::currentTime().second()));
-    QDateTime maxTime = QDateTime(QDate::currentDate(), QTime(QTime::currentTime().minute() + 10, QTime::currentTime().second()));
+    axisX->setTickCount(11); // 5 minutes / 30 seconds per tick = 10 ticks + 1 initial tick
+    axisX->setFormat("mm:ss");
+    axisX->setTitleText("Time (Last 5 Minutes)");
+
+    QDateTime currentTime = QDateTime::currentDateTime();
+    QDateTime minTime = currentTime.addSecs(-5 * 60); // 5 minutes ago
+    QDateTime maxTime = currentTime;
     axisX->setRange(minTime, maxTime);
+
     chart->addAxis(axisX, Qt::AlignBottom);
     liveTempSeries->attachAxis(axisX);
     liveHumiditySeries->attachAxis(axisX);
@@ -331,17 +330,27 @@ void MainWindow::adjustTickCount(QMainWindow* graphWindow, QChart* chart) {
 
 void MainWindow::updateTemperature(float celsius, float fahrenheit)
 {
+    QDateTime currentTime = QDateTime::currentDateTime();
+    QDateTime minTime = currentTime.addSecs(-5 * 60); // 5 minutes ago
     if (liveTempSeries) {
         QDateTime time = QDateTime::currentDateTime();
         liveTempSeries->append(time.toMSecsSinceEpoch(), celsius);
+        while (!liveTempSeries->points().isEmpty() && liveTempSeries->points().first().x() < minTime.toMSecsSinceEpoch()) {
+            liveTempSeries->remove(0);
+        }
     }
 }
 
 void MainWindow::updateHumidity(float humidity)
 {
+    QDateTime currentTime = QDateTime::currentDateTime();
+    QDateTime minTime = currentTime.addSecs(-5 * 60); // 5 minutes ago
     if (liveHumiditySeries) {
         QDateTime time = QDateTime::currentDateTime();
         liveHumiditySeries->append(time.toMSecsSinceEpoch(), humidity);
+        while (!liveHumiditySeries->points().isEmpty() && liveHumiditySeries->points().first().x() < minTime.toMSecsSinceEpoch()) {
+            liveHumiditySeries->remove(0);
+        }
     }
 }
 
