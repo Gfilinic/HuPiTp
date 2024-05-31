@@ -2,10 +2,17 @@
 #include <stdio.h>
 #include <time.h>
 #include <wiringPi.h>
+#include <QMutex>
 
-DHT22::DHT22(QObject *parent) : QObject(parent)
+
+DHT22::DHT22(QReadWriteLock *fileMutex, QObject *parent) : QObject(parent)
 {
-    // Constructor implementation
+    try {
+        // Constructor implementation
+        lock = fileMutex;
+    } catch (const std::exception &e) {
+        qCritical() << "An error occurred in DHT22 constructor:" << e.what();
+    }
 }
 
 short DHT22::readData()
@@ -99,15 +106,25 @@ void DHT22::readAndOutputSensorDataAsJson(const QString &filename) // Modified t
     struct timespec start, end;
     double elapsedTime;
     QFile file(filename); // Create QFile object with the given filename
-
+    try{
     // GPIO Initialization
     if (wiringPiSetupGpio() == -1)
     {
         fprintf(stderr, "ERROR: GPIO Initialization FAILED.\n");
         throw std::runtime_error("GPIO Initialization FAILED");
     }
-
-    maxtry = 20;
+    QJsonObject existingData;
+    {
+    QReadLocker locker(lock);
+    if (file.open(QIODevice::ReadOnly)) {
+        QByteArray fileData = file.readAll();
+        QJsonDocument doc(QJsonDocument::fromJson(fileData));
+        if (!doc.isNull() && doc.isObject()) {
+            existingData = doc.object();
+        }
+        file.close();
+    }
+    }
     //start timer
     clock_gettime(CLOCK_REALTIME, &start);
     int i = 0;
@@ -151,22 +168,33 @@ void DHT22::readAndOutputSensorDataAsJson(const QString &filename) // Modified t
 
             // Create JSON object
             QJsonObject json;
-            json["elapsed_time_sec"] = elapsedTime;
-            json["try_count"] = i;
-            json["datetime"] = dateTime.toString(Qt::ISODate);
-            json["temp_C"] = celsius;
-            json["temp_F"] = fahrenheit;
-            json["humid_perc"] = humidity;
+            QString dateKey = dateTime.toString("yyyy-MM-dd"); // Use the date as the key
+            QJsonObject entry;
+            entry["time"] = dateTime.toString("HH:mm:ss");
+            entry["humidity"] = humidity;
+            entry["temp_C"] = celsius;
+            entry["temp_F"] = fahrenheit;
 
-            // Write JSON object to file
-            if (file.open(QIODevice::WriteOnly | QIODevice::Append)) {
-                QJsonDocument doc(json);
-                file.write(doc.toJson());
-                file.write("\n"); // Add newline for readability
-                file.close();
-            } else {
-                fprintf(stderr, "Error opening file for writing.\n");
+            // Read existing data from the file
+
+
+            // Add the new entry to the existing data
+            QJsonArray dateEntries = existingData.value(dateKey).toArray();
+            dateEntries.append(entry);
+            existingData[dateKey] = dateEntries;
+            {
+                QWriteLocker locker(lock);
+                // Write updated data back to the file
+                if (file.open(QIODevice::WriteOnly)) {
+                    QJsonDocument doc(existingData);
+                    file.write(doc.toJson());
+                    file.write("\n"); // Add newline for readability
+                    file.close();
+                } else {
+                    fprintf(stderr, "Error opening file for writing.\n");
+                }
             }
+
 
             emit temperatureUpdated(celsius, fahrenheit);
             emit humidityUpdated(humidity);
@@ -182,6 +210,10 @@ void DHT22::readAndOutputSensorDataAsJson(const QString &filename) // Modified t
 
         delay(2000);    // DHT22 average sensing period is 2 seconds
         i++;
+    }
+    }catch(const std::exception &e) {
+        qCritical() << "An error occurred in readAndOutputSensorDataAsJson:" << e.what();
+        throw; // Re-throw the exception to propagate it upwards
     }
 
     fprintf(stderr, "Maximum attempts reached. Stop reading.\n");

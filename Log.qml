@@ -38,14 +38,13 @@ Rectangle {
         temperature = temperature.toFixed(2);
         temperatureF = temperatureF.toFixed(2);
         var newEntry = "----------------------------------------------\n";
-        newEntry += "\nTemperature: " + temperature + "°C (" + temperatureF + "°F)\n";
+        newEntry += "Temperature: " + temperature + "°C (" + temperatureF + "°F)\n";
         log = newEntry + log;
     }
     function updateHumidityLog(humidity) {
         humidity = humidity.toFixed(2);
-        var newEntry = "Humidity: " + humidity + "%\n";
-
-
+        var newEntry = "----------------------------------------------\n";
+        newEntry = "Humidity: " + humidity + "%\n";
         log = newEntry + log;
     }
 
