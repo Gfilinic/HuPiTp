@@ -45,7 +45,12 @@ Item {
     }
 
     Component.onCompleted: {
-
+        temperatureValue = 25
+        humidityValue = 40
+        temperatureValue = 26
+        humidityValue = 41
+        humidityValue = 42
+        humidityValue = 41
     }
 
     onTemperatureValueChanged: {

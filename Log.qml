@@ -44,7 +44,7 @@ Rectangle {
     function updateHumidityLog(humidity) {
         humidity = humidity.toFixed(2);
         var newEntry = "----------------------------------------------\n";
-        newEntry = "Humidity: " + humidity + "%\n";
+        newEntry += "Humidity: " + humidity + "%\n";
         log = newEntry + log;
     }
 

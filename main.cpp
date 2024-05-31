@@ -3,8 +3,8 @@
 #include <QThread>
 #include <QQmlApplicationEngine>
 #include "mainwindow.h"
-#include "dht22.h"
-#include <QMutex>
+
+
 #include <QMessageBox>
 #include <QReadWriteLock>
 #include <QtConcurrent>
@@ -17,7 +17,13 @@ int main(int argc, char *argv[])
 
         // MainWindow setup
 
-        QString fileName = "sensorDataDHT22.json";
+        // Get the current directory of the executable
+        QString currentDir = QCoreApplication::applicationDirPath();
+        qDebug()<< "Current directory: " << currentDir.toStdString();
+
+        // Set the filename
+        QString fileName = QDir(currentDir).filePath("../../sensorDataDHT22.json");
+        qDebug() << "Full path to the JSON file: " << fileName.toStdString();
         MainWindow w(&fileMutex, fileName);
 
         // QQuickWidget setup for QML
@@ -26,34 +32,28 @@ int main(int argc, char *argv[])
         qmlWidget->setResizeMode(QQuickWidget::SizeRootObjectToView);
         w.setCentralWidget(qmlWidget);
 
-        // DHT22 setup
-        DHT22 *dht22 = new DHT22(&fileMutex); // Create DHT22 object on the stack
-
-
-        auto readDataFunc = [=]() {
-            dht22->readAndOutputSensorDataAsJson(fileName);
-        };
-
-        // Use QtConcurrent::run with the lambda function
-        QFuture<void> future = QtConcurrent::run(readDataFunc);
-
-        // Connect signals to update both QWidget and QML interfaces
-        QObject::connect(dht22, &DHT22::temperatureUpdated, &w, [&](float celsius, float fahrenheit) {
-            w.updateTemperature(celsius, fahrenheit);
-            if (qmlWidget->rootObject()) {
-                qmlWidget->rootObject()->setProperty("temperatureValue", celsius);
-                qmlWidget->rootObject()->setProperty("temperatureFValue", fahrenheit);
-            }
-        });
-
-        QObject::connect(dht22, &DHT22::humidityUpdated, &w, [&](float humidity) {
-            w.updateHumidity(humidity);
-            if (qmlWidget->rootObject()) {
-                qmlWidget->rootObject()->setProperty("humidityValue", humidity);
-            }
-        });
 
         w.show();
+        QRandomGenerator *generator = QRandomGenerator::global();
+
+        // Run the sensor data mocking in a separate thread
+        // Run the sensor data mocking in a separate thread
+        QFuture<void> future = QtConcurrent::run([&w, generator]() {
+            while (true) {
+                // Generate random temperature and humidity values
+                float temperature = generator->generateDouble() * (25.0 - 20.0) + 20.0;
+                float humidity = generator->generateDouble() * (50.0 - 30.0) + 30.0;
+
+                float tempF = temperature * 9/5 + 32;
+                qDebug() << "Temp:" << temperature <<"\nHumidity:" << humidity;
+                // Update the temperature and humidity in the MainWindow
+                w.updateTemperature(temperature,tempF);
+                w.updateHumidity(humidity);
+
+                // Sleep for 2 seconds
+                QThread::sleep(2);
+            }
+        });
 
         return app.exec();
     } catch (const std::exception &e) {

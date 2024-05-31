@@ -21,8 +21,6 @@ set(PROJECT_SOURCES
     mainwindow.ui
     customchartview.h
     customchartview.cpp
-    dht22.cpp
-    dht22.h
     resources.qrc
 )
 
@@ -57,7 +55,6 @@ target_link_libraries(appHuPiTp
             Qt6::Widgets
             Qt6::Charts
             Qt6::QuickWidgets
-    PRIVATE wiringPi
 )
 
 include(GNUInstallDirs)
