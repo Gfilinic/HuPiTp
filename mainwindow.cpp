@@ -24,6 +24,7 @@ MainWindow::MainWindow(QReadWriteLock *fileMutex, QString filePath, QWidget *par
 {
     try {
         ui->setupUi(this);
+        setWindowTitle("HuPiTp");
         liveTempSeries = new QLineSeries(this);
         liveHumiditySeries = new QLineSeries(this);
         connect(ui->actionDaily_statistic, &QAction::triggered, this, &MainWindow::showDailyStatisticGraph);
@@ -276,7 +277,13 @@ QChart *MainWindow::createLiveStatisticChart()
         if (data.y() < minTemp) {
             minTemp = data.y() - 10;
         }
-        if (data.y()> maxHumidity)maxHumidity = data.y()+10;
+
+    }
+    for (const auto &data : liveHumiditySeries->points()) {
+        if (data.y() > maxHumidity) {
+            maxHumidity = data.y() + 10;
+        }
+
     }
     axisY->setRange(minTemp, maxHumidity);
     chart->addAxis(axisY, Qt::AlignLeft);
@@ -291,6 +298,14 @@ QChart *MainWindow::createLiveStatisticChart()
     liveTempSeries->setColor("crimson");
     liveHumiditySeries->setName("Humidity");
     liveHumiditySeries->setColor("skyblue");
+
+    QTimer *timer = new QTimer(this);
+    connect(timer, &QTimer::timeout, [=]() {
+        QDateTime currentTime = QDateTime::currentDateTime();
+        QDateTime minTime = currentTime.addSecs(-5 * 60); // 5 minutes ago
+        axisX->setRange(minTime, currentTime);
+    });
+    timer->start(2000); // Update every second
 
     return chart;
 }
